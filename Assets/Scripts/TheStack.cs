@@ -17,7 +17,7 @@ public class TheStack : MonoBehaviour
 
     private Vector3 prevBlockPosition;
     private Vector3 desiredPosition;
-    private Vector3 stackBounds = new Vector2(BoundSize, BoundSize);    // 새롭게 생성되는 블록 사이즈값 저장해둠
+    private Vector3 stackBounds = new Vector2(BoundSize, BoundSize);    // 새롭게 생성될 블록 사이즈값 저장해둠
 
     Transform lastBlock = null;
     float blockTransition = 0f;
@@ -162,6 +162,7 @@ public class TheStack : MonoBehaviour
         if (isMovingX)
         {
             float deltaX = prevBlockPosition.x - lastPosition.x; // 이전 블록과 현재 블록의 중심 좌표 차이이자, 새로 올린 블럭이 외곽에서 벗어난 차이
+            bool isNegativeNum = (deltaX < 0) ? true : false;   // 블록의 어느쪽에서 떨어트릴지 이거로 정함 
 
             deltaX = Mathf.Abs(deltaX);
             if(deltaX > ErrorMargin)
@@ -169,16 +170,27 @@ public class TheStack : MonoBehaviour
                 stackBounds.x -= deltaX; // 다음 생성할 사이즈 깎아줌
                 if(stackBounds.x <= 0) 
                 {
-                    Debug.Log(stackBounds.x);
                     return false;   // 게임오버
                 }
-                Debug.Log(stackBounds.x);
                 float middle = (prevBlockPosition.x + lastPosition.x) / 2f;
                 lastBlock.localScale = new Vector3(stackBounds.x, 1, stackBounds.y);
 
                 Vector3 tempPos = lastBlock.localPosition;
                 tempPos.x = middle;
                 lastBlock.localPosition = lastPosition = tempPos;
+
+                // 파편 생성
+                float rubbleHalfScale = deltaX / 2;
+                CreateRubble(
+                    new Vector3(
+                        isNegativeNum
+                        ? lastPosition.x + stackBounds.x / 2 + rubbleHalfScale
+                        : lastPosition.x - stackBounds.x / 2 - rubbleHalfScale
+                        , lastPosition.y
+                        , lastPosition.z
+                        ),
+                    new Vector3(deltaX, 1, stackBounds.y)
+                );
             }
             else
             {
@@ -189,26 +201,39 @@ public class TheStack : MonoBehaviour
         else 
         {
             float deltaZ = prevBlockPosition.z - lastPosition.z;
+            bool isNegativeNum = (deltaZ < 0) ? true : false;   // 블록의 어느쪽에서 떨어트릴지 이거로 정함 
+
             deltaZ = Mathf.Abs(deltaZ);
             if(deltaZ > ErrorMargin)
             {
                 stackBounds.y -= deltaZ;
                 if(stackBounds.y <= 0)
                 {
-                    Debug.Log(stackBounds.y);
                     return false;
                 }
-                Debug.Log(stackBounds.y);
                 float middle = (prevBlockPosition.z + lastPosition.z) / 2f;
                 lastBlock.localScale = new Vector3(stackBounds.x, 1, stackBounds.y);
 
                 Vector3 tempPos = lastBlock.localPosition;
                 tempPos.z = middle;
                 lastBlock.localPosition = lastPosition = tempPos;
+
+                // 파편 생성
+                float rubbleHalfScale = deltaZ / 2;
+                CreateRubble(
+                    new Vector3(
+                        lastPosition.x,
+                        lastPosition.y,
+                        isNegativeNum
+                        ? lastPosition.z + stackBounds.y / 2 + rubbleHalfScale
+                        : lastPosition.z - stackBounds.y / 2 - rubbleHalfScale
+                        ),
+                    new Vector3(stackBounds.x, 1, deltaZ)
+                );
             }
             else
             {
-                lastBlock.localScale = prevBlockPosition + Vector3.up;
+                lastBlock.localPosition = prevBlockPosition + Vector3.up;
             }
         }
 
@@ -216,5 +241,18 @@ public class TheStack : MonoBehaviour
         secondaryPosition = (isMovingX) ? lastBlock.localPosition.x : lastBlock.localPosition.z;
         
         return true;
+    }
+
+    void CreateRubble(Vector3 pos, Vector3 scale)
+    {
+        GameObject go = Instantiate(lastBlock.gameObject);
+        go.transform.parent = this.transform;   // TheStack 안으로 넣어주는 것
+
+        go.transform.localPosition = pos;
+        go.transform.localScale = scale;
+        go.transform.localRotation = Quaternion.identity;
+
+        go.AddComponent<Rigidbody>();
+        go.name = "Rubble"; // 게임오브젝트의 이름을 바꿈.
     }
 }
