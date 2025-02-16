@@ -24,6 +24,9 @@ public class TheStack : MonoBehaviour
     int stackCount = -1;
     int comboCount = 0;
 
+    public Color prevColor;
+    public Color nextColor;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -32,6 +35,8 @@ public class TheStack : MonoBehaviour
             Debug.Log("OriginBlock is null");
             return;
         }
+        prevColor = GetRandomColor();
+        nextColor = GetRandomColor();
 
         prevBlockPosition = Vector3.down;
 
@@ -67,6 +72,7 @@ public class TheStack : MonoBehaviour
             Debug.Log("NewBlock Instantiate Failed");
             return false;
         }
+        ColorChange(newBlock);
 
         // 새로 생성한 블록은 부모없이 그냥 씬에 있는 애임. TheStack 하위로 들어가려면 부모를 자신의 trans로 바꿔줘야 함.
         // 계층 구조를 Transform이 가지고 있기 때문에!! 
@@ -83,5 +89,36 @@ public class TheStack : MonoBehaviour
 
         lastBlock = newTrans;
         return true;
+    }
+
+    Color GetRandomColor()
+    {
+        float r = Random.Range(100f, 250f) / 255f; // 100부터 한 이유는 100보다 아래값으로 설정하면 너무 어두워서임. 
+        float g = Random.Range(100f, 250f) / 255f;
+        float b = Random.Range(100f, 250f) / 255f;
+
+        return new Color(r, g, b);
+    }
+
+    void ColorChange(GameObject go)
+    {
+        Color applyColor = Color.Lerp(prevColor, nextColor, (stackCount % 11/*0 ~ 10 순환하는 값 나옴*/) / 10f); // prev~next컬러의 중간값들 스택카운트에 맞춰서 나오는거
+
+        // 우리 Block이 갖고 있는 렌더러는 메쉬 렌더러. Renderer가 그거의 부모 클래스
+        Renderer rn = go.GetComponent<Renderer>(); 
+        if(rn == null)
+        {
+            Debug.Log("Renderer is null");
+            return;
+        }
+
+        rn.material.color = applyColor; // 컬러나 재질 등은 material이 처리하고 있음
+        Camera.main.backgroundColor = applyColor - new Color(0.1f, 0.1f, 0.1f);
+
+        if(applyColor.Equals(nextColor) == true) // 컬러 Lerp 다 끝났으면
+        {
+            prevColor = nextColor;
+            nextColor = GetRandomColor();
+        }
     }
 }
