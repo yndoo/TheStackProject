@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
+using UnityEngine.Experimental.AI;
 
 public class TheStack : MonoBehaviour
 {
@@ -27,6 +29,8 @@ public class TheStack : MonoBehaviour
     public Color prevColor;
     public Color nextColor;
 
+    bool isMovingX = true;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -41,6 +45,7 @@ public class TheStack : MonoBehaviour
         prevBlockPosition = Vector3.down;
 
         SpawnBlock();
+        SpawnBlock();
     }
 
     // Update is called once per frame
@@ -48,8 +53,18 @@ public class TheStack : MonoBehaviour
     {
         if(Input.GetMouseButtonDown(0))
         {
-            SpawnBlock();
+            if(PlaceBlock())
+            {
+                SpawnBlock();
+            }
+            else
+            {
+                // 게임 오버
+                Debug.Log("Game Over");
+            }
         }
+
+        MoveBlock();
 
         //transform.position = desiredPosition; //이렇게 하면 TheStack이 움직이는 게 안느껴짐.  
         transform.position = Vector3.Lerp(transform.position, desiredPosition, StackMovingSpeed * Time.deltaTime);
@@ -88,6 +103,8 @@ public class TheStack : MonoBehaviour
         blockTransition = 0f;
 
         lastBlock = newTrans;
+        isMovingX = !isMovingX;
+
         return true;
     }
 
@@ -120,5 +137,84 @@ public class TheStack : MonoBehaviour
             prevColor = nextColor;
             nextColor = GetRandomColor();
         }
+    }
+
+    void MoveBlock()
+    {
+        blockTransition += Time.deltaTime * BlockMovingSpeed;
+
+        float movePosition = Mathf.PingPong(blockTransition, BoundSize) - BoundSize / 2; // 핑퐁은 0부터 size까지 왔다갔다 순환하는 값
+
+        if (isMovingX)
+        {
+            lastBlock.localPosition = new Vector3(movePosition * MovingBoundsSize, stackCount, secondaryPosition);
+        }
+        else
+        {
+            lastBlock.localPosition = new Vector3(secondaryPosition, stackCount, -movePosition * MovingBoundsSize);
+        }
+    }
+
+    bool PlaceBlock()
+    {
+        Vector3 lastPosition = lastBlock.transform.localPosition;
+
+        if (isMovingX)
+        {
+            float deltaX = prevBlockPosition.x - lastPosition.x; // 이전 블록과 현재 블록의 중심 좌표 차이이자, 새로 올린 블럭이 외곽에서 벗어난 차이
+
+            deltaX = Mathf.Abs(deltaX);
+            if(deltaX > ErrorMargin)
+            {
+                stackBounds.x -= deltaX; // 다음 생성할 사이즈 깎아줌
+                if(stackBounds.x <= 0) 
+                {
+                    Debug.Log(stackBounds.x);
+                    return false;   // 게임오버
+                }
+                Debug.Log(stackBounds.x);
+                float middle = (prevBlockPosition.x + lastPosition.x) / 2f;
+                lastBlock.localScale = new Vector3(stackBounds.x, 1, stackBounds.y);
+
+                Vector3 tempPos = lastBlock.localPosition;
+                tempPos.x = middle;
+                lastBlock.localPosition = lastPosition = tempPos;
+            }
+            else
+            {
+                // 잘 올려둔 경우. 
+                lastBlock.localPosition = prevBlockPosition + Vector3.up; // 위치 보정. 보정을 안하면 계속 차이점이 errormargin보다 작은 값으로 나올거다?
+            }
+        }
+        else 
+        {
+            float deltaZ = prevBlockPosition.z - lastPosition.z;
+            deltaZ = Mathf.Abs(deltaZ);
+            if(deltaZ > ErrorMargin)
+            {
+                stackBounds.y -= deltaZ;
+                if(stackBounds.y <= 0)
+                {
+                    Debug.Log(stackBounds.y);
+                    return false;
+                }
+                Debug.Log(stackBounds.y);
+                float middle = (prevBlockPosition.z + lastPosition.z) / 2f;
+                lastBlock.localScale = new Vector3(stackBounds.x, 1, stackBounds.y);
+
+                Vector3 tempPos = lastBlock.localPosition;
+                tempPos.z = middle;
+                lastBlock.localPosition = lastPosition = tempPos;
+            }
+            else
+            {
+                lastBlock.localScale = prevBlockPosition + Vector3.up;
+            }
+        }
+
+        // 움직인 방향에따라서 이동방향에 사용됐던 x 또는 z값을 저장. 이전 블록의 중심을 사용하기 위함.
+        secondaryPosition = (isMovingX) ? lastBlock.localPosition.x : lastBlock.localPosition.z;
+        
+        return true;
     }
 }
