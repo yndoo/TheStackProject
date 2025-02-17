@@ -24,14 +24,29 @@ public class TheStack : MonoBehaviour
     float secondaryPosition = 0f;
 
     int stackCount = -1;
+    public int Score { get { return stackCount; } }
     int comboCount = 0;
+    public int Combo { get { return comboCount; } }
+
+    private int maxCombo = 0;
+    public int MaxCombo { get => maxCombo; }
 
     public Color prevColor;
     public Color nextColor;
 
     bool isMovingX = true;
 
-    // Start is called before the first frame update
+    int bestScore = 0;
+    public int BestScore { get => bestScore; }
+
+    int bestCombo = 0;
+    public int BestCombo { get => bestCombo; }
+
+    private const string BestScoreKey = "BestScore";
+    private const string BestComboKey = "BestCombo";
+
+    private bool isGameOver = false;
+
     void Start()
     {
         if(originBlock == null)
@@ -39,6 +54,10 @@ public class TheStack : MonoBehaviour
             Debug.Log("OriginBlock is null");
             return;
         }
+
+        bestScore = PlayerPrefs.GetInt(BestScoreKey, 0);
+        bestCombo = PlayerPrefs.GetInt(BestComboKey, 0);
+
         prevColor = GetRandomColor();
         nextColor = GetRandomColor();
 
@@ -48,9 +67,10 @@ public class TheStack : MonoBehaviour
         SpawnBlock();
     }
 
-    // Update is called once per frame
     void Update()
     {
+        if (isGameOver) return;
+
         if(Input.GetMouseButtonDown(0))
         {
             if(PlaceBlock())
@@ -61,6 +81,9 @@ public class TheStack : MonoBehaviour
             {
                 // 게임 오버
                 Debug.Log("Game Over");
+                UpdateScore();
+                isGameOver = true;
+                GameOverEffect();
             }
         }
 
@@ -191,11 +214,13 @@ public class TheStack : MonoBehaviour
                         ),
                     new Vector3(deltaX, 1, stackBounds.y)
                 );
+                comboCount = 0;
             }
             else
             {
                 // 잘 올려둔 경우. 
-                lastBlock.localPosition = prevBlockPosition + Vector3.up; // 위치 보정. 보정을 안하면 계속 차이점이 errormargin보다 작은 값으로 나올거다?
+                ComboCheck();
+                lastBlock.localPosition = prevBlockPosition + Vector3.up; // 위치 보정
             }
         }
         else 
@@ -230,9 +255,12 @@ public class TheStack : MonoBehaviour
                         ),
                     new Vector3(stackBounds.x, 1, deltaZ)
                 );
+
+                comboCount = 0;
             }
             else
             {
+                ComboCheck();
                 lastBlock.localPosition = prevBlockPosition + Vector3.up;
             }
         }
@@ -254,5 +282,56 @@ public class TheStack : MonoBehaviour
 
         go.AddComponent<Rigidbody>();
         go.name = "Rubble"; // 게임오브젝트의 이름을 바꿈.
+    }
+
+    void ComboCheck()
+    {
+        comboCount++;
+
+        if(comboCount > maxCombo)
+        {
+            maxCombo = comboCount;
+        }
+
+        if(comboCount % 5 == 0)
+        {
+            Debug.Log("5 Combo Success!");
+            
+            stackBounds += new Vector3(0.5f, 0.5f);
+            stackBounds.x = (stackBounds.x > BoundSize) ? BoundSize : stackBounds.x;
+            stackBounds.y = (stackBounds.y > BoundSize) ? BoundSize : stackBounds.y;
+        }
+    }
+
+    void UpdateScore()
+    {
+        if (bestScore < stackCount)
+        {
+            Debug.Log("최고기록 갱신");
+            bestScore = stackCount;
+            bestCombo = maxCombo;
+
+            PlayerPrefs.SetInt(BestScoreKey, bestScore);
+            PlayerPrefs.SetInt(BestComboKey, bestCombo);
+        }
+    }
+
+    void GameOverEffect()
+    {
+        int childCount = this.transform.childCount; // 이 transform의 하위 자식 개수!!
+
+        for(int i = 1; i < 20; i ++) // 상위 20개만 이펙트를 줄 것임.
+        {
+            if (childCount < i) break;
+
+            GameObject go = transform.GetChild(childCount - i).gameObject; // 제일 끝에서부터 가져옴
+
+            if (go.name.Equals("Rubble")) continue;
+
+            Rigidbody rigid = go.AddComponent<Rigidbody>();
+            rigid.AddForce(
+                (Vector3.up * Random.Range(0, 10f) + Vector3.right * (Random.Range(0, 10f) - 5f)) * 100f
+                );
+        }
     }
 }
